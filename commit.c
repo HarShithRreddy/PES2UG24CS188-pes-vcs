@@ -193,10 +193,10 @@ int head_update(const ObjectID *new_commit) {
 //   - head_update       : moves the branch pointer to your new commit
 //
 // Returns 0 on success, -1 on error.
-int commit_create(const Index *index, const char *message, ObjectID *id_out) {
+int commit_create(const char *message, ObjectID *id_out) {
     // Build tree from index
     ObjectID tree_id;
-    if (tree_from_index(index, &tree_id) != 0) return -1;
+    if (tree_from_index(&tree_id) != 0) return -1;
 
     // Try to read current HEAD as parent
     ObjectID parent_id;

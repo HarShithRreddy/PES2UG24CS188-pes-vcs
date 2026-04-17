@@ -129,7 +129,7 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
 
     // Step 6: Write to temp file
     snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", path);
-    int fd = open(tmp_path, O_CREAT | O_WRONLY | O_TRUNC, 0444);
+    int fd = open(tmp_path, O_CREAT | O_WRONLY | O_TRUNC, 0644);
     if (fd < 0) { free(full); return -1; }
 
     if (write(fd, full, full_len) != (ssize_t)full_len) {

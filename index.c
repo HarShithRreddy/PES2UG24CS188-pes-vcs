@@ -24,6 +24,8 @@
 #include <unistd.h>
 #include <dirent.h>
 
+int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out);
+
 // ─── PROVIDED ────────────────────────────────────────────────────────────────
 
 // Find an index entry by path (linear scan).
@@ -136,7 +138,7 @@ int index_status(const Index *index) {
 // Returns 0 on success, -1 on error.
 int index_load(Index *index_out) {
     index_out->count = 0;
-    FILE *f = fopen(INDEX_PATH, "r");
+    FILE *f = fopen(INDEX_FILE, "r");
     if (!f) return 0; // not an error — just empty
 
     char line[1024];
@@ -145,10 +147,12 @@ int index_load(Index *index_out) {
         IndexEntry *e = &index_out->entries[index_out->count];
 
         char hex[HASH_HEX_SIZE + 1];
-        int ret = sscanf(line, "%o %64s %ld %zu %255s",
-                         &e->mode, hex, &e->mtime, &e->size, e->path);
+        unsigned long long mtime;
+        int ret = sscanf(line, "%o %64s %llu %u %255s",
+                         &e->mode, hex, &mtime, &e->size, e->path);
         if (ret != 5) continue;
-        if (hex_to_hash(hex, &e->id) != 0) continue;
+        e->mtime_sec = mtime;
+        if (hex_to_hash(hex, &e->hash) != 0) continue;
         index_out->count++;
     }
     fclose(f);
@@ -171,7 +175,7 @@ static int cmp_index_entries(const void *a, const void *b) {
 
 int index_save(const Index *index) {
     char tmp[256];
-    snprintf(tmp, sizeof(tmp), "%s.tmp", INDEX_PATH);
+    snprintf(tmp, sizeof(tmp), "%s.tmp", INDEX_FILE);
 
     FILE *f = fopen(tmp, "w");
     if (!f) return -1;
@@ -182,16 +186,16 @@ int index_save(const Index *index) {
     for (int i = 0; i < sorted.count; i++) {
         IndexEntry *e = &sorted.entries[i];
         char hex[HASH_HEX_SIZE + 1];
-        hash_to_hex(&e->id, hex);
-        fprintf(f, "%06o %s %ld %zu %s\n",
-                e->mode, hex, e->mtime, e->size, e->path);
+        hash_to_hex(&e->hash, hex);
+        fprintf(f, "%06o %s %llu %u %s\n",
+                e->mode, hex, (unsigned long long)e->mtime_sec, e->size, e->path);
     }
 
     fflush(f);
     fsync(fileno(f));
     fclose(f);
 
-    return rename(tmp, INDEX_PATH);
+    return rename(tmp, INDEX_FILE);
 }
 
 // Stage a file for the next commit.
@@ -229,9 +233,9 @@ int index_add(Index *index, const char *path) {
         existing = &index->entries[index->count++];
     }
 
-    existing->id = id;
+    existing->hash = id;
     existing->mode = (st.st_mode & S_IXUSR) ? 0100755 : 0100644;
-    existing->mtime = st.st_mtime;
+    existing->mtime_sec = st.st_mtime;
     existing->size = st.st_size;
     strncpy(existing->path, path, sizeof(existing->path) - 1);
     existing->path[sizeof(existing->path) - 1] = '\0';
