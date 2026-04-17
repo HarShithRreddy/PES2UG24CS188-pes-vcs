@@ -216,7 +216,9 @@ int index_add(Index *index, const char *path) {
     if (!f) return -1;
     uint8_t *data = malloc(st.st_size);
     if (!data) { fclose(f); return -1; }
-    fread(data, 1, st.st_size, f);
+    if (fread(data, 1, st.st_size, f) != (size_t)st.st_size) {
+        fclose(f); free(data); return -1;
+    }
     fclose(f);
 
     // Write blob object

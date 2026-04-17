@@ -1,6 +1,13 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -I/opt/homebrew/opt/openssl@3/include
-LDFLAGS = -lcrypto -L/opt/homebrew/opt/openssl@3/lib -Wl,-stack_size,0x2000000
+OS := $(shell uname)
+
+ifeq ($(OS), Darwin)
+  CFLAGS  = -Wall -Wextra -O2 -I/opt/homebrew/opt/openssl@3/include
+  LDFLAGS = -lcrypto -L/opt/homebrew/opt/openssl@3/lib -Wl,-stack_size,0x2000000
+else
+  CFLAGS  = -Wall -Wextra -O2
+  LDFLAGS = -lcrypto
+endif
 
 # ─── Main binary ─────────────────────────────────────────────────────────────
 

@@ -118,7 +118,7 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
     }
 
     // Step 5: Build path and create shard directory
-    char path[512], tmp_path[512];
+    char path[512], tmp_path[520];
     object_path(id_out, path, sizeof(path));
 
     char dir[512];
