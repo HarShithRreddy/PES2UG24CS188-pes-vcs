@@ -193,9 +193,35 @@ int head_update(const ObjectID *new_commit) {
 //   - head_update       : moves the branch pointer to your new commit
 //
 // Returns 0 on success, -1 on error.
-int commit_create(const char *message, ObjectID *commit_id_out) {
-    // TODO: Implement commit creation
-    // (See Lab Appendix for logical steps)
-    (void)message; (void)commit_id_out;
-    return -1;
+int commit_create(const Index *index, const char *message, ObjectID *id_out) {
+    // Build tree from index
+    ObjectID tree_id;
+    if (tree_from_index(index, &tree_id) != 0) return -1;
+
+    // Try to read current HEAD as parent
+    ObjectID parent_id;
+    int has_parent = (head_read(&parent_id) == 0);
+
+    // Build commit text
+    char tree_hex[HASH_HEX_SIZE + 1], parent_hex[HASH_HEX_SIZE + 1];
+    hash_to_hex(&tree_id, tree_hex);
+
+    char buf[4096];
+    int len = 0;
+    len += snprintf(buf + len, sizeof(buf) - len, "tree %s\n", tree_hex);
+    if (has_parent) {
+        hash_to_hex(&parent_id, parent_hex);
+        len += snprintf(buf + len, sizeof(buf) - len, "parent %s\n", parent_hex);
+    }
+    len += snprintf(buf + len, sizeof(buf) - len,
+                    "author %s %ld\n", pes_author(), (long)time(NULL));
+    len += snprintf(buf + len, sizeof(buf) - len,
+                    "committer %s %ld\n", pes_author(), (long)time(NULL));
+    len += snprintf(buf + len, sizeof(buf) - len, "\n%s\n", message);
+
+    // Write commit object
+    if (object_write(OBJ_COMMIT, buf, len, id_out) != 0) return -1;
+
+    // Update HEAD
+    return head_update(id_out);
 }
