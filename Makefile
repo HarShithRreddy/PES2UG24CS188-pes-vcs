@@ -6,7 +6,7 @@ ifeq ($(OS), Darwin)
   LDFLAGS = -lcrypto -L/opt/homebrew/opt/openssl@3/lib -Wl,-stack_size,0x2000000
 else
   CFLAGS  = -Wall -Wextra -O2
-  LDFLAGS = -lcrypto
+  LDFLAGS = -lcrypto -Wl,-z,stacksize=67108864
 endif
 
 # ─── Main binary ─────────────────────────────────────────────────────────────
