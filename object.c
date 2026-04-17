@@ -219,5 +219,5 @@ int object_read(const ObjectID *id, ObjectType *type_out, void **data_out, size_
     memcpy(*data_out, data_start, data_len);
 
     free(buf);
-    return 0;
+    return 0
 }
