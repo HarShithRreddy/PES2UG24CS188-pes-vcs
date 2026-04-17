@@ -81,31 +81,41 @@ static int compare_tree_entries(const void *a, const void *b) {
 // Serialize a Tree struct into binary format for storage.
 // Caller must free(*data_out).
 // Returns 0 on success, -1 on error.
+static int cmp_entries(const void *a, const void *b) {
+    return strcmp(((TreeEntry *)a)->name, ((TreeEntry *)b)->name);
+}
+
 int tree_serialize(const Tree *tree, void **data_out, size_t *len_out) {
-    // Estimate max size: (6 bytes mode + 1 byte space + 256 bytes name + 1 byte null + 32 bytes hash) per entry
-    size_t max_size = tree->count * 296; 
-    uint8_t *buffer = malloc(max_size);
-    if (!buffer) return -1;
+    // Sort a copy
+    Tree sorted = *tree;
+    qsort(sorted.entries, sorted.count, sizeof(TreeEntry), cmp_entries);
 
-    // Create a mutable copy to sort entries (Git requirement)
-    Tree sorted_tree = *tree;
-    qsort(sorted_tree.entries, sorted_tree.count, sizeof(TreeEntry), compare_tree_entries);
-
-    size_t offset = 0;
-    for (int i = 0; i < sorted_tree.count; i++) {
-        const TreeEntry *entry = &sorted_tree.entries[i];
-        
-        // Write mode and name (%o writes octal correctly for Git standards)
-        int written = sprintf((char *)buffer + offset, "%o %s", entry->mode, entry->name);
-        offset += written + 1; // +1 to step over the null terminator written by sprintf
-        
-        // Write binary hash
-        memcpy(buffer + offset, entry->hash.hash, HASH_SIZE);
-        offset += HASH_SIZE;
+    // Calculate total size
+    size_t total = 0;
+    for (int i = 0; i < sorted.count; i++) {
+        total += strlen(sorted.entries[i].mode) + 1   // "100644 "
+               + strlen(sorted.entries[i].name) + 1   // "filename\0"
+               + HASH_SIZE;                            // 32 raw bytes
     }
 
-    *data_out = buffer;
-    *len_out = offset;
+    uint8_t *buf = malloc(total);
+    if (!buf) return -1;
+    uint8_t *p = buf;
+
+    for (int i = 0; i < sorted.count; i++) {
+        TreeEntry *e = &sorted.entries[i];
+        size_t mode_len = strlen(e->mode);
+        size_t name_len = strlen(e->name);
+
+        memcpy(p, e->mode, mode_len); p += mode_len;
+        *p++ = ' ';
+        memcpy(p, e->name, name_len); p += name_len;
+        *p++ = '\0';
+        memcpy(p, e->id.hash, HASH_SIZE); p += HASH_SIZE;
+    }
+
+    *data_out = buf;
+    *len_out = total;
     return 0;
 }
 
